@@ -14,6 +14,12 @@
     <script src="./libs/jquery-1.12.4.min.js"></script>
     <!-- 模板引擎 -->
     <script src="./libs/template-web.js"></script>
+    <!-- 日期插件 -->
+    <script src="./libs/jedate/js/jedate.js"></script>
+    <link rel="stylesheet" href="./libs/jedate/css/jeDate-test.css">
+    <link rel="stylesheet" href="./libs/jedate/css/jedate.css">
+    <!-- 引入富文本js -->
+    <script type="text/javascript" src="./libs/wangEditor.js"></script>
 </head>
 
 <body>
@@ -23,6 +29,7 @@
         </div>
         <div class="container-fluid common_con">
             <form class="form-horizontal article_form" id="form">
+                <input type="hidden" id="id" name="id">
                 <div class="form-group">
                     <label for="inputTitle" class="col-sm-2 control-label">文章标题：</label>
                     <div class="col-sm-10">
@@ -50,12 +57,17 @@
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">发布时间：</label>
-                    <div class="col-sm-4">
+                    <div class="jeinpbox col-sm-4">
+                        <input type="text" name="date" class="jeinput" id="testico" placeholder="YYYY-MM-DD">
+                        <div class="icons jebtns" onclick="jeDate('#testico',{trigger:false,format: 'YYYY-MM-DD'})">
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="inputEmail3" class="col-sm-2 control-label">文章内容：</label>
-                    <div class="col-sm-10">
+                    <!-- 富文本编辑器 -->
+                    <div id="editor" class="col-sm-10">
+                        <p>欢迎使用 <b>wangEditor</b> 富文本编辑器</p>
                     </div>
                 </div>
                 <div class="form-group">
@@ -67,6 +79,118 @@
             </form>
         </div>
     </div>
+    <!-- 引入http -->
+    <script src="./libs/http.js"></script>
+    <!-- 模板引擎 文章类别 -->
+    <script id="categoryList" type="text/html">
+        {{each data v}}
+        <option value="{{v.id}}">{{v.name}}</option>
+        {{/each}}
+    </script>
+    <script>
+        // 入口函数
+        $(function () {
+            // 1:头像预览
+            $('#inputCover').on('change', function () {
+                $('.article_cover').attr('src', URL.createObjectURL(this.files[0]))
+            });
+            // 2:一进到页面就获取所有的文章类别
+            $.ajax({
+                url: BigNew.category_list,
+                success: function (backData) {
+                    // console.log(backData);
+                    //模板引擎渲染页面 
+                    $('.category').html(template('categoryList', backData));
+                }
+            });
+            // 3:日期
+            jeDate("#testico", {
+                isinitVal: true, //默认时间
+                // format: "YYYY-MM-DD", //日期格式
+                isTime: false,
+                minDate: "2014-09-19 00:00:00",
+                zIndex: 999999999,
+            })
+            // 4:富文本编辑器
+            var E = window.wangEditor
+            var editor = new E('#editor')
+            // 或者 var editor = new E( document.getElementById('editor') )
+            editor.create()
+
+            // 5:获取id
+            var id = window.location.search.split("=")[1]
+            //  发送ajax,通过id获取信息
+            setTimeout(function () {
+                $.ajax({
+                    type: 'get',
+                    url: BigNew.article_search,
+                    data: {
+                        id: id
+                    },
+                    success: function (backData) {
+                        // console.log(backData)
+                        if (backData.code) {
+                            $('#articleId').val(backData.data.id); //文章id
+                            $('#inputTitle').val(backData.data.title); //文章标题
+                            $('.article_cover').attr('src', backData.data.cover); //文章封面
+                            $('select.category').val(backData.data.categoryId); //文章类别
+                            $('#testico').val(backData.data.date);
+                            $('#id').val(backData.data.id)
+                            //设置内容
+                            editor.txt.html(backData.data.content); //设置内容
+                        }
+
+                    }
+                })
+            }, 10)
+
+            // 给修改按钮设置点击事件
+            $('.btn-draft').on('click', function (e) {
+                e.preventDefault()
+                var fd = new FormData($('form')[0])
+                var content = editor.txt.html()
+                fd.append('content', content)
+                $.ajax({
+                    type: 'post',
+                    url: BigNew.article_edit,
+                    data: fd,
+                    contentType: false,
+                    processData: false,
+                    success: function (backData) {
+                        if (backData.code == 200) {
+                            alert(backData.msg)
+                            window.location.href = './article_list.html'
+                        }
+                    }
+                })
+            })
+
+            // 修改草稿
+            $('.btn-edit').on('click', function (e) {
+                e.preventDefault()
+                var fd = new FormData($('form')[0])
+                var content = editor.txt.html()
+                fd.append('content', content)
+                fd.append('state', '已发布')
+                // console.log(fd.get('id'))
+                $.ajax({
+                    type: 'post',
+                    url: BigNew.article_edit,
+                    data: fd,
+                    contentType: false,
+                    processData: false,
+                    success: function (backData) {
+                        if (backData.code == 200) {
+                            alert(backData.msg)
+                            window.location.href = './article_list.html'
+                        }
+                    }
+                })
+            })
+
+
+        })
+    </script>
 </body>
 
 </html>
